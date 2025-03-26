@@ -10,5 +10,6 @@ func StartServer() {
 		})
 	})
 	Login(router)
+	Edit(router)
 	router.Run()
 }
