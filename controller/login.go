@@ -73,8 +73,14 @@ func LoginUser(c *gin.Context) {
 		return
 	}
 
-	// ตรวจสอบรหัสผ่าน (เปรียบเทียบแบบปกติ ไม่ใช้ Hashing)
-	if customerData.Password != input.Password {
+	// // ตรวจสอบรหัสผ่าน (เปรียบเทียบแบบปกติ ไม่ใช้ Hashing)
+	// if customerData.Password != input.Password {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+	// 	return
+	// }
+
+	err = bcrypt.CompareHashAndPassword([]byte(customerData.Password), []byte(input.Password))
+	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
 	}
