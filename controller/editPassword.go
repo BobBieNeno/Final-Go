@@ -3,6 +3,7 @@ package controller
 import (
 	"go-final/model"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -62,10 +63,19 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// อัพเดตฐานข้อมูลด้วยรหัสผ่านใหม่ที่แฮชแล้ว
+	// อัพเดตฐานข้อมูลด้วยรหัสผ่านใหม่ที่แฮชแล้ว และอัพเดตเวลา UpdatedAt
 	customer.Password = hashedNewPassword
-	db.Save(&customer)
+	customer.UpdatedAt = time.Now() // อัพเดตเวลาปัจจุบัน
+
+	// บันทึกข้อมูลลงในฐานข้อมูล
+	if err := db.Save(&customer).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user data"})
+		return
+	}
 
 	// ตอบกลับว่าเปลี่ยนรหัสผ่านสำเร็จ
-	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password updated successfully",
+		"update":  customer.UpdatedAt,
+	})
 }
