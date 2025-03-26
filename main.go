@@ -26,8 +26,8 @@ func main() {
 	}
 	fmt.Println("Connection successful")
 
-	customer := []model.CartItem{}
-	result := db.Preload("ProductData").Preload("CartData").Find(&customer)
+	customer := []model.Cart{}
+	result := db.Preload("CustomerData").Find(&customer)
 	if result.Error != nil {
 		panic(result.Error)
 	}
