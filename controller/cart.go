@@ -1,20 +1,24 @@
 package controller
 
 import (
-	"go-final/model"
 	"net/http"
-	"github.com/gin-gonic/gin"
-)
+	"time"
+	"go-final/model"
 
-// ฟังก์ชันในการเพิ่มสินค้าลงในรถเข็น
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+func Cart(router *gin.Engine) {
+	router.GET("/cart", ping)
+	router.POST("/cart", AddToCart)
+}
+// AddToCart เพิ่มสินค้าลงในรถเข็น
 func AddToCart(c *gin.Context) {
 	var input struct {
-		Email     string  `json:"email"`
-		CartName  string  `json:"cart_name"`
-		ProductID int     `json:"product_id"`
-		Quantity  int     `json:"quantity"`
-		MinPrice  float64 `json:"min_price"`
-		MaxPrice  float64 `json:"max_price"`
+		CustomerID int    `json:"customer_id"`
+		CartName   string `json:"cart_name"`
+		ProductID  int    `json:"product_id"`
+		Quantity   int    `json:"quantity"`
 	}
 
 	// รับข้อมูลจาก body (JSON)
@@ -30,33 +34,24 @@ func AddToCart(c *gin.Context) {
 		return
 	}
 
-	// ค้นหาสินค้าในฐานข้อมูลที่ตรงกับช่วงราคาที่ลูกค้าต้องการ
-	var products []model.Product
-	result := db.Where("price BETWEEN ? AND ?", input.MinPrice, input.MaxPrice).Find(&products)
-	if result.Error != nil || len(products) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No products found in the specified price range"})
-		return
-	}
-
-	// ค้นหาลูกค้าโดยใช้ email
-	var customer model.Customer
-	result = db.Where("email = ?", input.Email).First(&customer)
-	if result.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Customer not found"})
-		return
-	}
-
-	// ค้นหารถเข็นที่ลูกค้าต้องการ
+	// ค้นหารถเข็นตามชื่อและลูกค้า
 	var cart model.Cart
-	result = db.Where("customer_id = ? AND cart_name = ?", customer.CustomerID, input.CartName).First(&cart)
+	result := db.Where("customer_id = ? AND cart_name = ?", input.CustomerID, input.CartName).First(&cart)
 	if result.Error != nil {
-		// ถ้ารถเข็นไม่พบ ให้สร้างรถเข็นใหม่
-		cart = model.Cart{
-			CustomerID: customer.CustomerID,
-			CartName:   input.CartName,
-		}
-		if err := db.Create(&cart).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cart"})
+		if result.Error == gorm.ErrRecordNotFound {
+			// ถ้าไม่พบรถเข็น ให้สร้างใหม่
+			cart = model.Cart{
+				CustomerID: input.CustomerID,
+				CartName:   input.CartName,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+			}
+			if err := db.Create(&cart).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cart"})
+				return
+			}
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
 	}
@@ -65,25 +60,32 @@ func AddToCart(c *gin.Context) {
 	var cartItem model.CartItem
 	result = db.Where("cart_id = ? AND product_id = ?", cart.CartID, input.ProductID).First(&cartItem)
 	if result.Error != nil {
-		// ถ้าไม่พบสินค้าในรถเข็น ให้เพิ่มสินค้าใหม่
-		cartItem = model.CartItem{
-			CartID:    cart.CartID,
-			ProductID: input.ProductID,
-			Quantity:  input.Quantity,
-		}
-		if err := db.Create(&cartItem).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product to cart"})
+		if result.Error == gorm.ErrRecordNotFound {
+			// ถ้าไม่มีสินค้านี้ในรถเข็น ให้เพิ่มใหม่
+			cartItem = model.CartItem{
+				CartID:    cart.CartID,
+				ProductID: input.ProductID,
+				Quantity:  input.Quantity,
+				UpdatedAt: time.Now(),
+			}
+			if err := db.Create(&cartItem).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product to cart"})
+				return
+			}
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
 	} else {
-		// ถ้ามีสินค้าในรถเข็นแล้ว ให้เพิ่มจำนวน
+		// ถ้ามีสินค้านี้อยู่แล้ว ให้เพิ่มจำนวน
 		cartItem.Quantity += input.Quantity
+		cartItem.UpdatedAt = time.Now()
 		if err := db.Save(&cartItem).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product quantity in cart"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product quantity"})
 			return
 		}
 	}
 
-	// ตอบกลับการเพิ่มสินค้าในรถเข็น
+	// ตอบกลับสำเร็จ
 	c.JSON(http.StatusOK, gin.H{"message": "Product added to cart successfully"})
 }

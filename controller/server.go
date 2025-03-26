@@ -11,5 +11,7 @@ func StartServer() {
 	})
 	Login(router)
 	Edit(router)
+	Cart(router)
+	CartDetail(router)
 	router.Run()
 }
