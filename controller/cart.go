@@ -87,5 +87,5 @@ func AddToCart(c *gin.Context) {
 	}
 
 	// ตอบกลับสำเร็จ
-	c.JSON(http.StatusOK, gin.H{"message": "Product added to cart successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Product added to cart successfully !!"})
 }
