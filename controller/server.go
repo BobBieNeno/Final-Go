@@ -9,5 +9,6 @@ func StartServer() {
 			"message": "Api is now working",
 		})
 	})
+	Login(router)
 	router.Run()
 }
